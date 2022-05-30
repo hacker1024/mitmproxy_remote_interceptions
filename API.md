@@ -10,14 +10,23 @@ transaction ID in the `id` field, which should be duplicated in the API response
 _This `id` field isn't mentioned in any object documentation - remember to include it in the responses, or else the
 addon won't know what to do with them._
 
+Alongside the `id` field, the various flow stage API requests have some common fields. See the
+[Flow stages](#flow-stages) section for more information.
+
 # Multiple clients
-This addon supports chaining multiple clients. Requests and responses will be sent through each client in the order of connection,
-such that the modifications done by one client become the input of the next.
+This addon supports chaining multiple clients. Requests and responses will be sent through each client in the order of
+connection, such that the modifications done by one client become the input of the next.
 
 # Flow stages
 
 The WebSocket API sends an API request object at four stages in every HTTP flow. At each stage, the client is expected
 to send a certain API response object back.
+
+While the type of API request object varies with each stage, they each have the following common fields:
+
+| Key       | Type                                       |
+|-----------|--------------------------------------------|
+| `stage`   | The stage of the flow (e.g. `pre-request`) |
 
 Failure to respond to an API request will leave the flow hanging indefinitely.
 
