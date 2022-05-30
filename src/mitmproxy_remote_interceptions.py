@@ -23,7 +23,7 @@ class RemoteInterceptions:
         loader.add_option(
             "ws_port",
             int,
-            8081,
+            8082,
             "The port to use for the WebSocket server.",
         )
 
