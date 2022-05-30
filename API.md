@@ -27,6 +27,7 @@ While the type of API request object varies with each stage, they each have the 
 | Key       | Type                                       |
 |-----------|--------------------------------------------|
 | `stage`   | The stage of the flow (e.g. `pre-request`) |
+| `flow_id` | An ID unique to the flow                   |
 
 Failure to respond to an API request will leave the flow hanging indefinitely.
 

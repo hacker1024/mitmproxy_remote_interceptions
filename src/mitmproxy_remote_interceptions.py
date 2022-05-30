@@ -106,7 +106,7 @@ class RemoteInterceptions:
 
         return api_response
 
-    async def _handle_http_message(self, http_flow: http.HTTPFlow, is_request: bool):
+    async def _handle_http_message(self, flow: http.HTTPFlow, is_request: bool):
         # Iterate over every connected client, allowing them to intercept the message one by one such that the output
         # of the previous client (accepted by the provided handler) is the input of the next client.
         # Copy the websocket list to avoid modification during iteration.
@@ -119,9 +119,10 @@ class RemoteInterceptions:
             requested_message_settings: MessageSetSettings = MessageSetSettings.from_json(
                 await self._perform_transaction(websocket, {
                     "stage": "pre_request" if is_request else "pre_response",
-                    "request_summary": _request_to_summary_json(http_flow.request),
+                    "flow_id": flow.id,
+                    "request_summary": _request_to_summary_json(flow.request),
                     "response_summary":
-                        _response_to_summary_json(http_flow.response) if http_flow.response is not None else None,
+                        _response_to_summary_json(flow.response) if flow.response is not None else None,
                 })
             )
 
@@ -133,17 +134,18 @@ class RemoteInterceptions:
             message_set: MessageSet = MessageSet.from_json(
                 await self._perform_transaction(websocket, {
                     "stage": "request" if is_request else "response",
-                    "request": _request_to_json(http_flow.request) if requested_message_settings.send_request else None,
-                    "response": _response_to_json(http_flow.response) if (requested_message_settings.send_response
-                                                                          and http_flow.response is not None) else None,
+                    "flow_id": flow.id,
+                    "request": _request_to_json(flow.request) if requested_message_settings.send_request else None,
+                    "response": _response_to_json(flow.response) if (requested_message_settings.send_response
+                                                                     and flow.response is not None) else None,
                 })
             )
 
             # Use the received messages.
             if message_set.request is not None:
-                http_flow.request = message_set.request
+                flow.request = message_set.request
             if message_set.response is not None:
-                http_flow.response = message_set.response
+                flow.response = message_set.response
 
 
 addons: list[object] = [
