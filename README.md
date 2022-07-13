@@ -10,7 +10,7 @@ pip install -r requirements.txt
 # Launch mitmdump (or any addon-capable mitmproxy tool) with the addon
 mitmdump -s src/mitmproxy_remote_interceptions.py
 ```
-The addon will start a WebSocket server on port `8081` by default, but this can be customized with the `ws_port` option.
+The addon will start a WebSocket server on port `8082` by default, but this can be customized with the `ws_port` option.
 ```shell
 mitmdump -s src/mitmproxy_remote_interceptions.py --set ws_port=8000
 ```
