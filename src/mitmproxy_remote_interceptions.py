@@ -31,6 +31,7 @@ class RemoteInterceptions:
         self._server = await websockets.serve(
             self._ws_handler, "localhost", ctx.options.ws_port,
             compression=None,
+            max_size=1024 * 1024 * 1024,  # 1 GiB
         )
         ctx.log.info(f"WebSocket API server listening at http://localhost:{ctx.options.ws_port}")
 
