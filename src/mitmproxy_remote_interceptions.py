@@ -29,7 +29,9 @@ class RemoteInterceptions:
 
     async def running(self) -> None:
         self._server = await websockets.serve(
-            self._ws_handler, "localhost", ctx.options.ws_port,
+            self._ws_handler,
+            "localhost",
+            ctx.options.ws_port,
             compression=None,
             max_size=1024 * 1024 * 1024,  # 1 GiB
         )
@@ -49,7 +51,7 @@ class RemoteInterceptions:
         await self._handle_http_message(flow, is_request=False)
 
     async def _ws_handler(self, websocket: websockets.WebSocketServerProtocol) -> None:
-        ctx.log.info(f"WebSocket API client connected (CID: \"{str(websocket.id)}\")")
+        ctx.log.info(f'WebSocket API client connected (CID: "{str(websocket.id)}")')
         self._websockets.append(websocket)
 
         while True:
@@ -57,47 +59,49 @@ class RemoteInterceptions:
                 message = await websocket.recv()
             except (websockets.ConnectionClosedOK, websockets.ConnectionClosedError):
                 self._websockets.remove(websocket)
-                ctx.log.info(f"WebSocket API client disconnected (CID: \"{str(websocket.id)}\")")
+                ctx.log.info(f'WebSocket API client disconnected (CID: "{str(websocket.id)}")')
                 break
 
             try:
                 api_response: dict[str, object] = json.loads(message)
             except json.JSONDecodeError:
-                ctx.log.warn(
-                    f"Invalid JSON received from WebSocket API client (CID: \"{str(websocket.id)}\"). Ignoring.")
+                ctx.log.warn(f'Invalid JSON received from WebSocket API client (CID: "{str(websocket.id)}"). Ignoring.')
                 continue
 
             transaction_id: str | None = api_response.get("id")
             if transaction_id is None:
                 ctx.log.warn(
                     f"Received response from WebSocket API client without a transaction ID"
-                    f" (CID: \"{str(websocket.id)}\")"
-                    f". Ignoring.")
+                    f' (CID: "{str(websocket.id)}")'
+                    f". Ignoring."
+                )
                 continue
 
             if transaction_id in self._pendingTransactions:
-                ctx.log.debug(f"Received response from WebSocket API client"
-                              f" (CID: \"{str(websocket.id)}\", TID: {transaction_id})")
+                ctx.log.debug(
+                    f"Received response from WebSocket API client"
+                    f' (CID: "{str(websocket.id)}", TID: {transaction_id})'
+                )
                 self._pendingTransactions[transaction_id].set_result(api_response)
             else:
-                ctx.log.warn(f"Received response from WebSocket API with an unknown transaction ID"
-                             f" (CID: \"{str(websocket.id)}\", TID: \"{transaction_id}\")"
-                             f". Ignoring.")
+                ctx.log.warn(
+                    f"Received response from WebSocket API with an unknown transaction ID"
+                    f' (CID: "{str(websocket.id)}", TID: "{transaction_id}")'
+                    f". Ignoring."
+                )
 
     async def _perform_transaction(
-            self,
-            websocket: websockets.WebSocketServerProtocol,
-            api_request: dict[str, object]
+        self,
+        websocket: websockets.WebSocketServerProtocol,
+        api_request: dict[str, object],
     ) -> dict[str, object]:
         # Create a transaction ID, and prepare to receive a response.
         transaction_id: str = str(uuid.uuid4())
-        pending_interception = \
-            self._pendingTransactions[transaction_id] = asyncio.get_running_loop().create_future()
+        pending_interception = self._pendingTransactions[transaction_id] = asyncio.get_running_loop().create_future()
 
         # Add the transaction ID to the API request, wait for a response, and then remove the ID from the response.
         api_request["id"] = transaction_id
-        ctx.log.debug(
-            f"Sending request to WebSocket API client (CID: \"{str(websocket.id)}\", TID: \"{transaction_id}\")")
+        ctx.log.debug(f'Sending request to WebSocket API client (CID: "{str(websocket.id)}", TID: "{transaction_id}")')
         await websocket.send(json.dumps(api_request))
         api_response: dict[str, object] = await pending_interception
         del api_response["id"]
@@ -118,13 +122,17 @@ class RemoteInterceptions:
 
             # Determine which full messages to send to the client.
             requested_message_settings: MessageSetSettings = MessageSetSettings.from_json(
-                await self._perform_transaction(websocket, {
-                    "stage": "pre_request" if is_request else "pre_response",
-                    "flow_id": flow.id,
-                    "request_summary": _request_to_summary_json(flow.request),
-                    "response_summary":
-                        _response_to_summary_json(flow.response) if flow.response is not None else None,
-                })
+                await self._perform_transaction(
+                    websocket,
+                    {
+                        "stage": "pre_request" if is_request else "pre_response",
+                        "flow_id": flow.id,
+                        "request_summary": _request_to_summary_json(flow.request),
+                        "response_summary": _response_to_summary_json(flow.response)
+                        if flow.response is not None
+                        else None,
+                    },
+                )
             )
 
             # If no messages are requested, skip to the next client.
@@ -133,30 +141,36 @@ class RemoteInterceptions:
 
             # Send and receive the relevant messages.
             message_set: MessageSet = MessageSet.from_json(
-                await self._perform_transaction(websocket, {
-                    "stage": "request" if is_request else "response",
-                    "flow_id": flow.id,
-                    "request": _request_to_json(flow.request) if requested_message_settings.send_request else None,
-                    "response": _response_to_json(flow.response) if (requested_message_settings.send_response
-                                                                     and flow.response is not None) else None,
-                })
+                await self._perform_transaction(
+                    websocket,
+                    {
+                        "stage": "request" if is_request else "response",
+                        "flow_id": flow.id,
+                        "request": _request_to_json(flow.request) if requested_message_settings.send_request else None,
+                        "response": _response_to_json(flow.response)
+                        if (requested_message_settings.send_response and flow.response is not None)
+                        else None,
+                    },
+                )
             )
 
             # Use the received messages.
             if message_set.request is not None:
                 if message_set.request.http_version == "RI/UNSET":
-                    message_set.request.http_version = flow.request.http_version \
-                        if flow.request is not None else "HTTP/1.1"
+                    message_set.request.http_version = (
+                        flow.request.http_version if flow.request is not None else "HTTP/1.1"
+                    )
                 flow.request = message_set.request
             if message_set.response is not None:
                 if message_set.response.http_version == "RI/UNSET":
-                    message_set.response.http_version = flow.response.http_version \
-                        if flow.response is not None else "HTTP/1.1"
+                    message_set.response.http_version = (
+                        flow.response.http_version if flow.response is not None else "HTTP/1.1"
+                    )
                 flow.response = message_set.response
 
 
 addons: list[object] = [
-    RemoteInterceptions()
+    RemoteInterceptions(),
 ]
 
 
@@ -199,12 +213,15 @@ def _request_from_json(request_json: dict[str, object]) -> http.Request:
         scheme=b"",
         authority=b"",
         path=b"",
-        http_version=typing.cast(str, request_json["http_version"]
-        if request_json["http_version"] is not None else "RI/UNSET").encode("utf-8", "surrogateescape"),
+        http_version=typing.cast(
+            str,
+            request_json["http_version"] if request_json["http_version"] is not None else "RI/UNSET",
+        ).encode("utf-8", "surrogateescape"),
         headers=_headers_from_json(typing.cast(dict[str, list[str]], request_json["headers"])),
         content=None,
         trailers=_headers_from_json(typing.cast(dict[str, list[str]], request_json["trailers"]))
-        if request_json["trailers"] is not None else None,
+        if request_json["trailers"] is not None
+        else None,
         timestamp_start=typing.cast(float, request_json["timestamp_start"]),
         timestamp_end=typing.cast(float, request_json["timestamp_end"]),
     )
@@ -239,14 +256,17 @@ def _response_to_summary_json(response: http.Response) -> dict[str, object]:
 
 def _response_from_json(response_json: dict[str, object]) -> http.Response:
     response = http.Response(
-        http_version=typing.cast(str, response_json["http_version"]
-        if response_json["http_version"] is not None else "RI/UNSET").encode("utf-8", "surrogateescape"),
+        http_version=typing.cast(
+            str,
+            response_json["http_version"] if response_json["http_version"] is not None else "RI/UNSET",
+        ).encode("utf-8", "surrogateescape"),
         status_code=typing.cast(int, response_json["status_code"]),
         reason=typing.cast(str, response_json["reason"] or "").encode("ISO-8859-1"),
         headers=_headers_from_json(typing.cast(dict[str, list[str]], response_json["headers"])),
         content=None,
         trailers=_headers_from_json(typing.cast(dict[str, list[str]], response_json["trailers"]))
-        if response_json["trailers"] is not None else None,
+        if response_json["trailers"] is not None
+        else None,
         timestamp_start=typing.cast(float, response_json["timestamp_start"]),
         timestamp_end=typing.cast(float, response_json["timestamp_end"]),
     )
@@ -278,10 +298,10 @@ class MessageSet:
     @staticmethod
     def from_json(json_dict: dict[str, object]) -> MessageSet:
         return MessageSet(
-            request=_request_from_json(
-                typing.cast(dict[str, object], json_dict["request"]))
-            if json_dict.get("request") is not None else None,
-            response=_response_from_json(
-                typing.cast(dict[str, object], json_dict["response"]))
-            if json_dict.get("response") is not None else None,
+            request=_request_from_json(typing.cast(dict[str, object], json_dict["request"]))
+            if json_dict.get("request") is not None
+            else None,
+            response=_response_from_json(typing.cast(dict[str, object], json_dict["response"]))
+            if json_dict.get("response") is not None
+            else None,
         )
