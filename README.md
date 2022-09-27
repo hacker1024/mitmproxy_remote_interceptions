@@ -18,5 +18,11 @@ mitmdump -s src/mitmproxy_remote_interceptions.py --set ws_port=8000
 ### WebSocket API
 WebSocket API documentation can be found in [`API.md`](API.md).
 
+## Known client libraries
+
+| Language/framework                       | Client library                                                      |
+|------------------------------------------|---------------------------------------------------------------------|
+| [Dart](https://dart.dev) (native and JS) | [mitmproxy_ri_client](https://pub.dev/packages/mitmproxy_ri_client) |
+
 [mitmproxy]: https://mitmproxy.org
 [python]: https://www.python.org
