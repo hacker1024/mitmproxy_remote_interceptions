@@ -144,8 +144,14 @@ class RemoteInterceptions:
 
             # Use the received messages.
             if message_set.request is not None:
+                if message_set.request.http_version == "RI/UNSET":
+                    message_set.request.http_version = flow.request.http_version \
+                        if flow.request is not None else "HTTP/1.1"
                 flow.request = message_set.request
             if message_set.response is not None:
+                if message_set.response.http_version == "RI/UNSET":
+                    message_set.response.http_version = flow.response.http_version \
+                        if flow.response is not None else "HTTP/1.1"
                 flow.response = message_set.response
 
 
@@ -167,10 +173,14 @@ def _headers_from_json(headers_json: dict[str, list[str]]) -> http.Headers:
 
 def _request_to_json(request: http.Request) -> dict[str, object]:
     return {
+        "http_version": request.http_version,
         "method": request.method,
         "url": request.url,
         "headers": _headers_to_json(request.headers),
         "body": base64.b64encode(request.get_content(strict=False)).decode("utf-8"),
+        "trailers": _headers_to_json(request.trailers) if request.trailers else None,
+        "timestamp_start": request.timestamp_start,
+        "timestamp_end": request.timestamp_end,
     }
 
 
@@ -182,20 +192,41 @@ def _request_to_summary_json(request: http.Request) -> dict[str, object]:
 
 
 def _request_from_json(request_json: dict[str, object]) -> http.Request:
-    return http.Request.make(
-        method=typing.cast(str, request_json["method"]),
-        url=typing.cast(str, request_json["url"]),
-        content=base64.b64decode(typing.cast(str, request_json["body"])),
+    request = http.Request(
+        host="",
+        port=0,
+        method=typing.cast(str, request_json["method"]).encode("utf-8", "surrogateescape"),
+        scheme=b"",
+        authority=b"",
+        path=b"",
+        http_version=typing.cast(str, request_json["http_version"]
+        if request_json["http_version"] is not None else "RI/UNSET").encode("utf-8", "surrogateescape"),
         headers=_headers_from_json(typing.cast(dict[str, list[str]], request_json["headers"])),
+        content=None,
+        trailers=_headers_from_json(typing.cast(dict[str, list[str]], request_json["trailers"]))
+        if request_json["trailers"] is not None else None,
+        timestamp_start=typing.cast(float, request_json["timestamp_start"]),
+        timestamp_end=typing.cast(float, request_json["timestamp_end"]),
     )
+
+    # Use the URL setter to set the host, port, scheme, authority and path.
+    request.url = typing.cast(str, request_json["url"])
+    # Use the content setter to ensure that the content is encoded in accordance with the encoding headers.
+    request.content = base64.b64decode(typing.cast(str, request_json["body"]))
+
+    return request
 
 
 def _response_to_json(response: http.Response) -> dict[str, object]:
     return {
+        "http_version": response.http_version,
         "status_code": response.status_code,
         "reason": response.reason,
         "headers": _headers_to_json(response.headers),
         "body": base64.b64encode(response.get_content(strict=False)).decode("utf-8"),
+        "trailers": _headers_to_json(response.trailers) if response.trailers else None,
+        "timestamp_start": response.timestamp_start,
+        "timestamp_end": response.timestamp_end,
     }
 
 
@@ -207,14 +238,22 @@ def _response_to_summary_json(response: http.Response) -> dict[str, object]:
 
 
 def _response_from_json(response_json: dict[str, object]) -> http.Response:
-    response = http.Response.make(
+    response = http.Response(
+        http_version=typing.cast(str, response_json["http_version"]
+        if response_json["http_version"] is not None else "RI/UNSET").encode("utf-8", "surrogateescape"),
         status_code=typing.cast(int, response_json["status_code"]),
-        content=base64.b64decode(typing.cast(str, response_json["body"])),
+        reason=typing.cast(str, response_json["reason"] or "").encode("ISO-8859-1"),
         headers=_headers_from_json(typing.cast(dict[str, list[str]], response_json["headers"])),
+        content=None,
+        trailers=_headers_from_json(typing.cast(dict[str, list[str]], response_json["trailers"]))
+        if response_json["trailers"] is not None else None,
+        timestamp_start=typing.cast(float, response_json["timestamp_start"]),
+        timestamp_end=typing.cast(float, response_json["timestamp_end"]),
     )
-    reason: str | None = response_json.get("reason")
-    if reason is not None:
-        response.reason = reason
+
+    # Use the content setter to ensure that the content is encoded in accordance with the encoding headers.
+    response.content = base64.b64decode(typing.cast(str, response_json["body"]))
+
     return response
 
 

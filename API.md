@@ -143,12 +143,16 @@ Setting request data at this stage will affect the mitmproxy UI and later client
 
 ## Request
 
-| Key       | Value                                  | Type                         | Optional? |
-|-----------|----------------------------------------|------------------------------|-----------|
-| `method`  | The HTTP method (e.g. "GET" or "POST") | String                       | No        |
-| `url`     | The request URL                        | String (URI)                 | No        |
-| `headers` | The request headers                    | Object(String: List(String)) | No        |
-| `body`    | The request body                       | String (base64)              | No        |
+| Key               | Value                                                                         | Type                         | Optional? |
+|-------------------|-------------------------------------------------------------------------------|------------------------------|-----------|
+| `http_version`    | The HTTP version (e.g. "HTTP/1.1"). Can be left out to use a sensible option. | String                       | Yes       |
+| `method`          | The HTTP method (e.g. "GET" or "POST")                                        | String                       | No        |
+| `url`             | The request URL                                                               | String (URI)                 | No        |
+| `headers`         | The request headers                                                           | Object(String: List(String)) | No        |
+| `body`            | The request body                                                              | String (base64)              | No        |
+| `trailers`        | The request trailers                                                          | Object(String: List(String)) | Yes       |
+| `timestamp_start` | The time of the start of the request (UNIX epoch time, seconds)               | Number                       |           |
+| `timestamp_end`   | The time of the end of the request (UNIX epoch time, seconds)                 | Number                       |           |
 
 ## Response summary
 
@@ -159,9 +163,13 @@ Setting request data at this stage will affect the mitmproxy UI and later client
 
 ## Response
 
-| Key           | Value                      | Type                         | Optional?                                                  |
-|---------------|----------------------------|------------------------------|------------------------------------------------------------|
-| `status_code` | The response status code   | Integer                      | No                                                         |
-| `reason`      | The response reason phrase | String                       | Yes (a default value based on the status code may be used) |
-| `headers`     | The response headers       | Object(String: List(String)) | No                                                         |
-| `body`        | The response body          | String (base64)              | No                                                         |
+| Key               | Value                                                                         | Type                         | Optional?                                                  |
+|-------------------|-------------------------------------------------------------------------------|------------------------------|------------------------------------------------------------|
+| `http_version`    | The HTTP version (e.g. "HTTP/1.1"). Can be left out to use a sensible option. | String                       | Yes                                                        |
+| `status_code`     | The response status code                                                      | Integer                      | No                                                         |
+| `reason`          | The response reason phrase                                                    | String                       | Yes (a default value based on the status code may be used) |
+| `headers`         | The response headers                                                          | Object(String: List(String)) | No                                                         |
+| `body`            | The response body                                                             | String (base64)              | No                                                         |
+| `trailers`        | The response trailers                                                         | Object(String: List(String)) | Yes                                                        |
+| `timestamp_start` | The time of the start of the response (UNIX epoch time, seconds)              | Number                       |                                                            |
+| `timestamp_end`   | The time of the end of the response (UNIX epoch time, seconds)                | Number                       |                                                            |
