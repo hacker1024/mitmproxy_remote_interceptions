@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "mitmproxy_remote_interceptions"
+version = "0.1.0"
+description = "A mitmproxy addon that provides a WebSocket-based API for remote interceptions."
+license = "MIT"
+authors = ["hacker1024 <hacker1024@users.sourceforge.net>"]
+readme = "README.md"
+homepage = "https://github.com/hacker1024/mitmproxy_remote_interceptions"
+repository = "https://github.com/hacker1024/mitmproxy_remote_interceptions"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+mitmproxy = "^8.0.0"
+websockets = "^10.3"
