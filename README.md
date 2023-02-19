@@ -20,7 +20,7 @@ A [Nix](https://nixos.org) derivation is included.
 
 ```shell
 nix-shell -p 'callPackage ./. { }'
-mitmdump -s $(python -c 'import importlib.util; print(importlib.util.find_spec("mitmproxy_remote_interceptions").origin)')
+mitmridump
 ```
 
 ### WebSocket API
