@@ -15,6 +15,14 @@ The addon will start a WebSocket server on port `8082` by default, but this can 
 mitmdump -s src/mitmproxy_remote_interceptions.py --set ws_port=8000
 ```
 
+### Nix
+A [Nix](https://nixos.org) derivation is included.
+
+```shell
+nix-shell -p 'callPackage ./. { }'
+mitmdump -s $(python -c 'import importlib.util; print(importlib.util.find_spec("mitmproxy_remote_interceptions").origin)')
+```
+
 ### WebSocket API
 WebSocket API documentation can be found in [`API.md`](API.md).
 
