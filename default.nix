@@ -28,7 +28,4 @@ let
     ${builtins.concatStringsSep "\n"
     (map (tool: "ln -s ${launcher}/bin/${launcher.name} $out/bin/mitmri${tool}") tools)}
   '';
-in buildEnv {
-  name = "mitmproxy-remote-interceptions-env";
-  paths = [ (python.withPackages (ps: [ mitmproxy-remote-interceptions ])) launchers ];
-}
+in launchers
