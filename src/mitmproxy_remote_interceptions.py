@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import logging
 import typing
 import uuid
 
@@ -35,7 +36,7 @@ class RemoteInterceptions:
             compression=None,
             max_size=1024 * 1024 * 1024,  # 1 GiB
         )
-        ctx.log.info(f"WebSocket API server listening at http://localhost:{ctx.options.ws_port}")
+        logging.info(f"WebSocket API server listening at http://localhost:{ctx.options.ws_port}")
 
     async def done(self) -> None:
         if self._server is None:
@@ -51,7 +52,7 @@ class RemoteInterceptions:
         await self._handle_http_message(flow, is_request=False)
 
     async def _ws_handler(self, websocket: websockets.ServerConnection) -> None:
-        ctx.log.info(f'WebSocket API client connected (CID: "{str(websocket.id)}")')
+        logging.info(f'WebSocket API client connected (CID: "{str(websocket.id)}")')
         self._websockets.append(websocket)
 
         while True:
@@ -59,18 +60,18 @@ class RemoteInterceptions:
                 message = await websocket.recv()
             except websockets.ConnectionClosed:
                 self._websockets.remove(websocket)
-                ctx.log.info(f'WebSocket API client disconnected (CID: "{str(websocket.id)}")')
+                logging.info(f'WebSocket API client disconnected (CID: "{str(websocket.id)}")')
                 break
 
             try:
                 api_response: dict[str, object] = json.loads(message)
             except json.JSONDecodeError:
-                ctx.log.warn(f'Invalid JSON received from WebSocket API client (CID: "{str(websocket.id)}"). Ignoring.')
+                logging.warning(f'Invalid JSON received from WebSocket API client (CID: "{str(websocket.id)}"). Ignoring.')
                 continue
 
             transaction_id: str | None = api_response.get("id")
             if transaction_id is None:
-                ctx.log.warn(
+                logging.warning(
                     f"Received response from WebSocket API client without a transaction ID"
                     f' (CID: "{str(websocket.id)}")'
                     f". Ignoring."
@@ -78,13 +79,13 @@ class RemoteInterceptions:
                 continue
 
             if transaction_id in self._pendingTransactions:
-                ctx.log.debug(
+                logging.debug(
                     f"Received response from WebSocket API client"
                     f' (CID: "{str(websocket.id)}", TID: {transaction_id})'
                 )
                 self._pendingTransactions[transaction_id].set_result(api_response)
             else:
-                ctx.log.warn(
+                logging.warning(
                     f"Received response from WebSocket API with an unknown transaction ID"
                     f' (CID: "{str(websocket.id)}", TID: "{transaction_id}")'
                     f". Ignoring."
@@ -101,7 +102,7 @@ class RemoteInterceptions:
 
         # Add the transaction ID to the API request, wait for a response, and then remove the ID from the response.
         api_request["id"] = transaction_id
-        ctx.log.debug(f'Sending request to WebSocket API client (CID: "{str(websocket.id)}", TID: "{transaction_id}")')
+        logging.debug(f'Sending request to WebSocket API client (CID: "{str(websocket.id)}", TID: "{transaction_id}")')
         await websocket.send(json.dumps(api_request))
         api_response: dict[str, object] = await pending_interception
         del api_response["id"]
