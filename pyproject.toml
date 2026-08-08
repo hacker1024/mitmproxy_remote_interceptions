@@ -11,4 +11,4 @@ repository = "https://github.com/hacker1024/mitmproxy_remote_interceptions"
 [tool.poetry.dependencies]
 python = "^3.10"
 mitmproxy = "^8.0.0"
-websockets = "^10.3"
+websockets = "^14.0"

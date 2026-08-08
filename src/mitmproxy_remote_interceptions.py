@@ -14,8 +14,8 @@ from mitmproxy import http
 
 class RemoteInterceptions:
     def __init__(self):
-        self._server: websockets.WebSocketServer = None
-        self._websockets: list[websockets.WebSocketServerProtocol] = []
+        self._server: websockets.Server | None = None
+        self._websockets: list[websockets.ServerConnection] = []
         self._pendingTransactions: dict[str, asyncio.Future[dict[str, object]]] = {}
 
     @staticmethod
@@ -50,14 +50,14 @@ class RemoteInterceptions:
     async def response(self, flow: http.HTTPFlow) -> None:
         await self._handle_http_message(flow, is_request=False)
 
-    async def _ws_handler(self, websocket: websockets.WebSocketServerProtocol) -> None:
+    async def _ws_handler(self, websocket: websockets.ServerConnection) -> None:
         ctx.log.info(f'WebSocket API client connected (CID: "{str(websocket.id)}")')
         self._websockets.append(websocket)
 
         while True:
             try:
                 message = await websocket.recv()
-            except (websockets.ConnectionClosedOK, websockets.ConnectionClosedError):
+            except websockets.ConnectionClosed:
                 self._websockets.remove(websocket)
                 ctx.log.info(f'WebSocket API client disconnected (CID: "{str(websocket.id)}")')
                 break
@@ -92,7 +92,7 @@ class RemoteInterceptions:
 
     async def _perform_transaction(
         self,
-        websocket: websockets.WebSocketServerProtocol,
+        websocket: websockets.ServerConnection,
         api_request: dict[str, object],
     ) -> dict[str, object]:
         # Create a transaction ID, and prepare to receive a response.
@@ -116,57 +116,57 @@ class RemoteInterceptions:
         # of the previous client (accepted by the provided handler) is the input of the next client.
         # Copy the websocket list to avoid modification during iteration.
         for websocket in self._websockets.copy():
-            # As clients may disconnect during the iteration, ensure that the websocket is still connected.
-            if websocket.closed:
-                continue
-
-            # Determine which full messages to send to the client.
-            requested_message_settings: MessageSetSettings = MessageSetSettings.from_json(
-                await self._perform_transaction(
-                    websocket,
-                    {
-                        "stage": "pre_request" if is_request else "pre_response",
-                        "flow_id": flow.id,
-                        "request_summary": _request_to_summary_json(flow.request),
-                        "response_summary": _response_to_summary_json(flow.response)
-                        if flow.response is not None
-                        else None,
-                    },
-                )
-            )
-
-            # If no messages are requested, skip to the next client.
-            if not (requested_message_settings.send_request or requested_message_settings.send_response):
-                continue
-
-            # Send and receive the relevant messages.
-            message_set: MessageSet = MessageSet.from_json(
-                await self._perform_transaction(
-                    websocket,
-                    {
-                        "stage": "request" if is_request else "response",
-                        "flow_id": flow.id,
-                        "request": _request_to_json(flow.request) if requested_message_settings.send_request else None,
-                        "response": _response_to_json(flow.response)
-                        if (requested_message_settings.send_response and flow.response is not None)
-                        else None,
-                    },
-                )
-            )
-
-            # Use the received messages.
-            if message_set.request is not None:
-                if message_set.request.http_version == "RI/UNSET":
-                    message_set.request.http_version = (
-                        flow.request.http_version if flow.request is not None else "HTTP/1.1"
+            try:
+                # Determine which full messages to send to the client.
+                requested_message_settings: MessageSetSettings = MessageSetSettings.from_json(
+                    await self._perform_transaction(
+                        websocket,
+                        {
+                            "stage": "pre_request" if is_request else "pre_response",
+                            "flow_id": flow.id,
+                            "request_summary": _request_to_summary_json(flow.request),
+                            "response_summary": _response_to_summary_json(flow.response)
+                            if flow.response is not None
+                            else None,
+                        },
                     )
-                flow.request = message_set.request
-            if message_set.response is not None:
-                if message_set.response.http_version == "RI/UNSET":
-                    message_set.response.http_version = (
-                        flow.response.http_version if flow.response is not None else "HTTP/1.1"
+                )
+
+                # If no messages are requested, skip to the next client.
+                if not (requested_message_settings.send_request or requested_message_settings.send_response):
+                    continue
+
+                # Send and receive the relevant messages.
+                message_set: MessageSet = MessageSet.from_json(
+                    await self._perform_transaction(
+                        websocket,
+                        {
+                            "stage": "request" if is_request else "response",
+                            "flow_id": flow.id,
+                            "request": _request_to_json(flow.request) if requested_message_settings.send_request else None,
+                            "response": _response_to_json(flow.response)
+                            if (requested_message_settings.send_response and flow.response is not None)
+                            else None,
+                        },
                     )
-                flow.response = message_set.response
+                )
+
+                # Use the received messages.
+                if message_set.request is not None:
+                    if message_set.request.http_version == "RI/UNSET":
+                        message_set.request.http_version = (
+                            flow.request.http_version if flow.request is not None else "HTTP/1.1"
+                        )
+                    flow.request = message_set.request
+                if message_set.response is not None:
+                    if message_set.response.http_version == "RI/UNSET":
+                        message_set.response.http_version = (
+                            flow.response.http_version if flow.response is not None else "HTTP/1.1"
+                        )
+                    flow.response = message_set.response
+            except websockets.ConnectionClosed:
+                # Skip if the websocket disconnects at any point.
+                continue
 
 
 addons: list[object] = [
